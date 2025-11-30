@@ -7,131 +7,133 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('Robot automatizado: Prueba completa de Festividades', (WidgetTester tester) async {
-    // 1. INICIAR LA APP - El robot abre la app
-    print('🤖: Iniciando la aplicación...');
+    print('🤖 Iniciando prueba de Festividades...');
+
+    // ---------------------------------------------------------
+    // 1. INICIAR LA APLICACIÓN
+    // ---------------------------------------------------------
     await tester.pumpWidget(const Cusco360App());
-    await tester.pumpAndSettle(Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 2)); // Espera real
+    await tester.pumpAndSettle();
 
-    // 2. NAVEGAR A FESTIVIDADES DESDE LA PANTALLA DE INICIO
-    print('🤖: Navegando a Festividades desde la pantalla de inicio...');
-    
-    // Buscar los botones de Festividades en la pantalla de inicio
-    final festividadesButtons = find.text('Festividades');
-    expect(festividadesButtons, findsAtLeast(1));
-    
-    // Presionar el primer botón de Festividades que encuentre
-    await tester.tap(festividadesButtons.first);
-    await tester.pumpAndSettle(Duration(seconds: 3));
+    // ---------------------------------------------------------
+    // 2. NAVEGAR A FESTIVIDADES DESDE EL HOME
+    // ---------------------------------------------------------
+    print('🤖 Buscando botón de Festividades...');
 
-    // 3. VERIFICAR QUE ESTAMOS EN LA PANTALLA DE FESTIVIDADES
-    print('🤖: Verificando que estoy en Festividades...');
-    
+    final festividadesButton = find.text('Festividades');
+
+    expect(
+      festividadesButton,
+      findsAtLeast(1),
+      reason: '❌ No se encontró ningún botón con texto "Festividades" en la pantalla de inicio',
+    );
+
+    await tester.tap(festividadesButton.first);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    // ---------------------------------------------------------
+    // 3. VERIFICAR QUE ESTAMOS EN LA PANTALLA
+    // ---------------------------------------------------------
+    print('🤖 Verificando pantalla de Festividades...');
+
     final appBarTitle = find.descendant(
       of: find.byType(AppBar),
       matching: find.text('Festividades'),
     );
-    
-    if (appBarTitle.evaluate().isNotEmpty) {
-      expect(appBarTitle, findsOneWidget);
-      print('✅: ¡Encontré la pantalla de Festividades! (AppBar)');
-    } else {
-      expect(find.text('Festividades'), findsAtLeast(1));
-      print('✅: ¡Encontré la pantalla de Festividades!');
-    }
 
-    // 4. ESPERAR A QUE CARGUE EL CONTENIDO
-    print('🤖: Esperando a que cargue el contenido...');
-    await tester.pumpAndSettle(Duration(seconds: 2));
+    expect(
+      appBarTitle,
+      findsOneWidget,
+      reason: '❌ No se encontró el título "Festividades" en el AppBar',
+    );
 
-    // 5. PROBAR EL CAMPO DE BÚSQUEDA
-    print('🤖: Probando el campo de búsqueda...');
-    
-    // Buscar el campo de búsqueda por su hint text
+    // ---------------------------------------------------------
+    // 4. PROBAR BUSCADOR
+    // ---------------------------------------------------------
+    print('🤖 Intentando usar el campo de búsqueda...');
+
     final searchField = find.byWidgetPredicate((widget) {
-      if (widget is TextField) {
-        final decoration = widget.decoration;
-        if (decoration != null && decoration.hintText != null) {
-          return decoration.hintText!.toLowerCase().contains('buscar');
-        }
-      }
-      return false;
+      return widget is TextField &&
+             widget.decoration?.hintText?.toLowerCase().contains('buscar') == true;
     });
 
     if (searchField.evaluate().isNotEmpty) {
       await tester.enterText(searchField, 'Inti Raymi');
-      await tester.pumpAndSettle(Duration(seconds: 2));
-      print('✅: ¡Búsqueda completada!');
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
 
-      // 6. VERIFICAR RESULTADOS DE BÚSQUEDA
-      print('🤖: Verificando resultados de búsqueda...');
-      await tester.pumpAndSettle(Duration(seconds: 2));
-      
-      // Buscar "Inti Raymi" en los resultados
+      print('🤖 Verificando resultado de búsqueda...');
       final intiRaymiText = find.text('Inti Raymi');
-      if (intiRaymiText.evaluate().isNotEmpty) {
-        expect(intiRaymiText, findsAtLeast(1));
-        print('✅: ¡Encontré Inti Raymi en los resultados!');
-      } else {
-        print('⚠️: No encontré "Inti Raymi" en los resultados');
-      }
+      expect(intiRaymiText, findsAtLeast(1),
+          reason: '❌ No se encontró el texto "Inti Raymi" después de buscar');
 
-      // LIMPIAR BÚSQUEDA
-      print('🤖: Limpiando búsqueda...');
+      // limpiar
       await tester.enterText(searchField, '');
-      await tester.pumpAndSettle(Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
     } else {
-      print('⚠️: No se encontró campo de búsqueda, omitiendo esta sección');
+      print('⚠ No se encontró campo de búsqueda, omitiendo esta sección.');
     }
 
-    // 7. PROBAR EL CALENDARIO
-    print('🤖: Probando interacción con el calendario...');
-    
-    // Buscar un día específico que tenga evento (24 de junio)
-    final currentYear = DateTime.now().year;
-    final day24Button = find.byKey(Key('day_24_6_$currentYear'));
-    
-    if (day24Button.evaluate().isNotEmpty) {
-      await tester.tap(day24Button);
-      await tester.pumpAndSettle(Duration(seconds: 2));
-      print('✅: ¡Toqué el día 24 de junio!');
+    // ---------------------------------------------------------
+    // 5. INTERACTUAR CON EL CALENDARIO
+    // ---------------------------------------------------------
+    print('🤖 Buscando día clickeable en el calendario...');
+
+    final year = DateTime.now().year;
+    final today = DateTime.now();
+
+    // priorizar 24 de junio
+    final day24June = find.byKey(Key('day_24_6_$year'));
+    Finder? targetDay;
+
+    if (day24June.evaluate().isNotEmpty) {
+      targetDay = day24June;
     } else {
-      // Si no existe, buscar cualquier día del mes actual
-      final currentDate = DateTime.now();
-      final anyDayButton = find.byKey(Key('day_${currentDate.day}_${currentDate.month}_${currentDate.year}'));
-      
-      if (anyDayButton.evaluate().isNotEmpty) {
-        await tester.tap(anyDayButton);
-        await tester.pumpAndSettle(Duration(seconds: 2));
-        print('✅: ¡Toqué un día del calendario!');
+      final todayButton = find.byKey(Key('day_${today.day}_${today.month}_$year'));
+      if (todayButton.evaluate().isNotEmpty) {
+        targetDay = todayButton;
       } else {
-        // Si no hay días del mes actual, buscar el primer día del mes
-        final firstDayButton = find.byKey(Key('day_1_${currentDate.month}_${currentDate.year}'));
-        if (firstDayButton.evaluate().isNotEmpty) {
-          await tester.tap(firstDayButton);
-          await tester.pumpAndSettle(Duration(seconds: 2));
-          print('✅: ¡Toqué el primer día del mes!');
-        } else {
-          print('⚠️: No encontré días clickeables en el calendario');
+        final firstDay = find.byKey(Key('day_1_${today.month}_$year'));
+        if (firstDay.evaluate().isNotEmpty) {
+          targetDay = firstDay;
         }
       }
     }
 
-    // 8. VERIFICAR SECCIÓN DE EVENTOS
-    print('🤖: Verificando sección de eventos...');
-    final eventsTitle = find.byKey(const Key('events_title'));
-    if (eventsTitle.evaluate().isNotEmpty) {
-      expect(eventsTitle, findsOneWidget);
-      print('✅: ¡Sección de eventos visible!');
+    if (targetDay != null) {
+      await tester.tap(targetDay);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      print('🤖 Día del calendario tocado correctamente.');
     } else {
-      print('⚠️: No se encontró la sección de eventos');
+      print('⚠ No se encontraron días clickeables en el calendario.');
     }
 
-    // 9. PRUEBA COMPLETADA (SIN NAVEGACIÓN A SITIOS)
-    print('🎉 ¡PRUEBA DE INTEGRACIÓN DE FESTIVIDADES COMPLETADA EXITOSAMENTE!');
-    print('🤖: El robot simuló las siguientes acciones en Festividades:');
-    print('   - Navegación desde pantalla de inicio');
-    print('   - Búsqueda de festividades');
-    print('   - Interacción con calendario');
-    print('   - Verificación de eventos del día');
+    // ---------------------------------------------------------
+    // 6. VERIFICAR SECCIÓN DE EVENTOS
+    // ---------------------------------------------------------
+    print('🤖 Verificando sección de eventos...');
+
+    final eventsTitle = find.byKey(const Key('events_title'));
+
+    expect(
+      eventsTitle,
+      findsOneWidget,
+      reason: '❌ No se encontró la sección de eventos del día.',
+    );
+
+    // ---------------------------------------------------------
+    // 7. FINALIZAR
+    // ---------------------------------------------------------
+    print('🎉 PRUEBA COMPLETADA EXITOSAMENTE');
+    print('🤖 Acciones ejecutadas:');
+    print('   ✔ Inicio de app');
+    print('   ✔ Navegación a Festividades');
+    print('   ✔ Prueba de búsqueda');
+    print('   ✔ Interacción con calendario');
+    print('   ✔ Verificación de sección de eventos');
   });
 }
