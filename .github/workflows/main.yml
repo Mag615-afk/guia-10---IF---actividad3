@@ -22,14 +22,17 @@ jobs:
       - name: Run integration tests
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
-          api-level: 29
+          api-level: 30
           target: google_apis
-          arch: x86
+          arch: arm64-v8a  # ← Cambiar a ARM
           profile: pixel_4
           force-avd-creation: false
           disable-animations: true
           emulator-options: -no-audio -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim -memory 2048 -partition-size 1024
           script: |
+            echo "📱 Dispositivos detectados:"
             flutter devices
-            adb devices
-            flutter test integration_test/festivities_test.dart -d emulator-5554
+            echo "🔧 Instalando app..."
+            flutter install
+            echo "🧪 Ejecutando pruebas..."
+            flutter test integration_test/festivities_test.dart
