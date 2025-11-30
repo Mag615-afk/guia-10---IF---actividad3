@@ -1,4 +1,4 @@
-name: Flutter CI - ARM Emulator
+name: Flutter CI - Integration Tests
 
 on:
   push:
@@ -7,65 +7,79 @@ on:
     branches: [ main, master ]
 
 jobs:
-  android-tests:
+  android-integration-test:
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
-    # 1. Descargar repo
+      # 1. Descargar repositorio
       - uses: actions/checkout@v4
 
+      # 2. Instalar Java (Requerido por Gradle/Android)
       - uses: actions/setup-java@v3
         with:
-          distribution: zulu
-          java-version: "17"
+          distribution: 'zulu'
+          java-version: '17'
 
+      # 3. Instalar Flutter
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.x"
-          channel: stable
+          flutter-version: '3.x'
+          channel: 'stable'
 
-      - name: Flutter pub get
+      # 4. Dependencias Flutter
+      - name: Instalar dependencias Flutter
         run: flutter pub get
 
+      # 5. Instalar Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
 
-      # ARM system image (IMPORTANTE!)
-      - name: Install ARM system image
+      # 6. Crear e iniciar emulador x86_64 (FUNCIONA EN GITHUB)
+      - name: Crear e iniciar emulador Android (x86_64)
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "system-images;android-30;google_apis;arm64-v8a"
+          echo "📦 Instalando system image..."
+          echo "y" | sdkmanager --install "system-images;android-30;google_apis;x86_64"
 
-      - name: Create AVD (ARM)
-        run: |
-          echo no | avdmanager create avd -n test_arm -k "system-images;android-30;google_apis;arm64-v8a" -d pixel_4
-          printf "hw.cpu.arch=arm64\nhw.cpu.model=cortex-a57\n" >> ~/.android/avd/test_arm.avd/config.ini
+          echo "🛠 Creando AVD..."
+          echo "no" | avdmanager create avd -n TestDevice -k "system-images;android-30;google_apis;x86_64" -d pixel_4
 
-      - name: Start ARM emulator
-        run: |
-          nohup $ANDROID_HOME/emulator/emulator \
-            -avd test_arm \
-            -no-snapshot \
-            -no-window \
-            -gpu swiftshader_indirect \
-            -no-boot-anim &
+          echo "🚀 Iniciando emulador..."
+          nohup emulator -avd TestDevice -no-window -gpu swiftshader_indirect -no-audio -no-boot-anim &
+
+          echo "⌛ Esperando que ADB detecte el dispositivo..."
           adb wait-for-device
 
-      - name: Wait for boot
+      # 7. Esperar boot completo
+      - name: Esperar a que Android termine de bootear
         run: |
+          echo "⌛ Esperando boot del emulador..."
           for i in {1..60}; do
-            if adb shell getprop sys.boot_completed | grep -q "1"; then
-              echo "Boot completed!"
+            BOOT=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+            if [ "$BOOT" = "1" ]; then
+              echo "🎉 Android está listo"
               break
             fi
-            echo "Waiting for boot..."
+            echo "⏳ Intento $i/60"
             sleep 5
           done
 
-      - name: Run integration tests
-        run: flutter test integration_test/festivities_test.dart
+          echo "🔧 Desactivando animaciones..."
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
 
-      - name: Kill emulator
+      # 8. Verificar dispositivos conectados (Debug)
+      - name: Verificar emulador y dispositivos
+        run: |
+          flutter devices
+          adb devices
+
+      # 9. Ejecutar pruebas de integración
+      - name: Ejecutar test de integración
+        run: flutter test integration_test/app_test.dart
+
+      # 10. Apagar emulador siempre
+      - name: Apagar emulador
         if: always()
         run: adb emu kill
