@@ -7,7 +7,7 @@ on:
 
 jobs:
   integration-test:
-    runs-on: macos-latest  # IMPORTANTE: ubuntu NO soporta emulador
+    runs-on: macos-latest
 
     steps:
       - name: Checkout repository
@@ -27,5 +27,5 @@ jobs:
           api-level: 33
           arch: arm64-v8a
           target: google_apis
-          profile: Pixel_3     # ← CAMBIADO, ESTE SÍ EXISTE
+          profile: pixel_xl     # <-- ESTE SÍ EXISTE EN 2025
           script: flutter test integration_test/festivities_test.dart
