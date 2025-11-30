@@ -22,11 +22,14 @@ jobs:
       - name: Run integration tests
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
-          api-level: 29  # ← API más ligero
-          target: google_apis  # ← Imagen más pequeña
-          arch: x86  # ← Arquitectura más rápida sin aceleración
-          profile: pixel_4  # ← Dispositivo más moderno
-          force-avd-creation: false  # ← Reutilizar AVD si existe
+          api-level: 29
+          target: google_apis
+          arch: x86
+          profile: pixel_4
+          force-avd-creation: false
           disable-animations: true
           emulator-options: -no-audio -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim -memory 2048 -partition-size 1024
-          script: flutter test integration_test/festivities_test.dart
+          script: |
+            flutter devices
+            adb devices
+            flutter test integration_test/festivities_test.dart -d emulator-5554
