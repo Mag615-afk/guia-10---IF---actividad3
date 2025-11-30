@@ -7,10 +7,9 @@ on:
     branches: [ main, master ]
 
 jobs:
-  # Trabajo 1: Pruebas de Integración en Android
   android-integration-test:
-    runs-on: macos-latest # Usamos macOS para mejor estabilidad con emuladores
-    timeout-minutes: 25  # Un poco más de tiempo
+    runs-on: macos-latest
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +21,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.3'  # Versión específica compatible
+          flutter-version: '3.38.3'
           channel: 'stable'
 
       - name: Instalar dependencias
@@ -31,10 +30,9 @@ jobs:
       - name: Ejecutar Test en Emulador
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
-          target: default
-          arch: x86_64
+          api-level: 31
+          target: google_apis
+          arch: arm64-v8a
           profile: Nexus 6
-          disable-animations: true    # ← ACELERA EL BOOT
-          emulator-options: -no-audio -no-snapshot  # ← OPTIMIZACIONES
+          disable-animations: true
           script: flutter test integration_test/festivities_test.dart
