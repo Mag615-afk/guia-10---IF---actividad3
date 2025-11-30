@@ -7,10 +7,10 @@ on:
 
 jobs:
   integration-test:
-    runs-on: ubuntu-latest  # ← mejor que macOS
+    runs-on: ubuntu-latest   # Android emulator funciona en Ubuntu
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install Flutter
@@ -18,14 +18,22 @@ jobs:
         with:
           flutter-version: "3.38.3"
 
-      - name: Dependencies
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: Start emulator + run tests
+      - name: Run integration tests
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
           api-level: 33
-          target: google_apis
           arch: x86_64
+          target: google_apis
           profile: pixel_xl
+
+          # 🔥 FIX DEL ESPACIO (esto evita el error FATAL)
+          disk-size: 6000M
+          ram-size: 2048M
+          heap-size: 512M
+          force-avd-creation: true
+          disable-animations: true
+
           script: flutter test integration_test/festivities_test.dart
