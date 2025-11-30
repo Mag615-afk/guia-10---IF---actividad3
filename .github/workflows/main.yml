@@ -1,4 +1,4 @@
-name: Flutter CI - Integration Tests Cusco 360
+name: Flutter CI - ARM Emulator
 
 on:
   push:
@@ -7,35 +7,65 @@ on:
     branches: [ main, master ]
 
 jobs:
-  android-test:
+  android-tests:
     runs-on: macos-latest
-    timeout-minutes: 35
+    timeout-minutes: 30
 
     steps:
     # 1. Descargar repo
       - uses: actions/checkout@v4
-    # 2. Java (necesario para Gradle y Android)
+
       - uses: actions/setup-java@v3
         with:
-          distribution: 'zulu'
-          java-version: '17'
-          
+          distribution: zulu
+          java-version: "17"
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.3'
-          channel: 'stable'
+          flutter-version: "3.x"
+          channel: stable
 
-      - name: Install dependencies
+      - name: Flutter pub get
         run: flutter pub get
 
-      # 🚀 Emulador estable y funcionando (SIN ERRORES)
-      - name: Run integration tests on Android Emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 30
-          target: google_apis
-          arch: x86_64
-          profile: pixel_4
-          script: flutter test integration_test/festivities_test.dart
-          disable-animations: true
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+
+      # ARM system image (IMPORTANTE!)
+      - name: Install ARM system image
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "system-images;android-30;google_apis;arm64-v8a"
+
+      - name: Create AVD (ARM)
+        run: |
+          echo no | avdmanager create avd -n test_arm -k "system-images;android-30;google_apis;arm64-v8a" -d pixel_4
+          printf "hw.cpu.arch=arm64\nhw.cpu.model=cortex-a57\n" >> ~/.android/avd/test_arm.avd/config.ini
+
+      - name: Start ARM emulator
+        run: |
+          nohup $ANDROID_HOME/emulator/emulator \
+            -avd test_arm \
+            -no-snapshot \
+            -no-window \
+            -gpu swiftshader_indirect \
+            -no-boot-anim &
+          adb wait-for-device
+
+      - name: Wait for boot
+        run: |
+          for i in {1..60}; do
+            if adb shell getprop sys.boot_completed | grep -q "1"; then
+              echo "Boot completed!"
+              break
+            fi
+            echo "Waiting for boot..."
+            sleep 5
+          done
+
+      - name: Run integration tests
+        run: flutter test integration_test/festivities_test.dart
+
+      - name: Kill emulator
+        if: always()
+        run: adb emu kill
