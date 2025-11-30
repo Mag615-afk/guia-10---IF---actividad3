@@ -1,98 +1,67 @@
-name: Flutter CI - Integration Tests Cusco 360
+name: Flutter Integration Tests
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
 
 jobs:
   android-integration-test:
-    runs-on: macos-latest
-    timeout-minutes: 35
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
-    # 1. Checkout del repo
+      # 1. Checkout del repo
       - uses: actions/checkout@v4
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
+      # 2. Java para Gradle
       - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
           java-version: '17'
-           # 3. Instalar Flutter
+
+      # 3. Flutter
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.3'
+          flutter-version: '3.x'
           channel: 'stable'
 
-      - name: Install Android Emulator
-        run: |
-          echo "Installing Android Emulator and System Image..."
-          sdkmanager --install "emulator"
-          sdkmanager --install "system-images;android-30;google_apis;x86_64"
-          sdkmanager --install "platforms;android-30"
-          sdkmanager --install "build-tools;30.0.3"
-          sdkmanager --list
-
-      - name: Create AVD
-        run: |
-          echo "Creating Android Virtual Device..."
-          echo "no" | avdmanager create avd \
-            --name "test_avd" \
-            --package "system-images;android-30;google_apis;x86_64" \
-            --device "pixel_4" \
-            --force
-
-      - name: Start Emulator
-        run: |
-          echo "Starting emulator..."
-          emulator -avd test_avd \
-            -no-audio \
-            -no-window \
-            -gpu swiftshader_indirect \
-            -memory 2048 \
-            -partition-size 2048 &
-          adb wait-for-device
-
-      - name: Wait for emulator to fully boot
-        run: |
-          echo "Waiting for emulator to fully boot..."
-          # Esperar a que el sistema esté listo
-          until adb shell getprop sys.boot_completed | grep "1"; do
-            echo "Waiting for boot completion..."
-            sleep 10
-          done
-          
-          # Esperar adicional para servicios
-          sleep 30
-          
-          # Deshabilitar animaciones
-          adb shell settings put global window_animation_scale 0.0
-          adb shell settings put global transition_animation_scale 0.0
-          adb shell settings put global animator_duration_scale 0.0
-          
-          echo "Emulator is ready!"
-
-      - name: Verify setup
-        run: |
-          echo "Connected devices:"
-          adb devices -l
-          echo "Flutter devices:"
-          flutter devices
-          echo "AVD list:"
-          avdmanager list avd
-
-      - name: Instalar dependencias
+      # 4. Dependencias
+      - name: Flutter pub get
         run: flutter pub get
 
-      - name: Run integration tests
+      # 5. Instalar SDK + imagen ARM
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+
+      # 6. Crear e iniciar emulador ARM64 (FUNCIONA EN UBUNTU)
+      - name: Crear e iniciar emulador ARM64
+        run: |
+          echo "Instalando imagen ARM64..."
+          echo "y" | sdkmanager --install "system-images;android-30;google_apis;arm64-v8a"
+
+          echo "Creando AVD..."
+          echo "no" | avdmanager create avd -n Test -k "system-images;android-30;google_apis;arm64-v8a" -d pixel_4
+
+          echo "Iniciando emulador..."
+          nohup emulator -avd Test -no-window -no-audio -no-boot-anim &
+
+          echo "Esperando boot..."
+          adb wait-for-device
+          
+          # Esperar a boot
+          for i in {1..40}; do
+            BOOT=$(adb shell getprop sys.boot_completed | tr -d '\r')
+            [ "$BOOT" = "1" ] && break
+            sleep 5
+          done
+
+      # 7. Ejecutar test
+      - name: Ejecutar test de integración
         run: flutter test integration_test/festivities_test.dart
 
-      - name: Stop emulator
+      # 8. Apagar emulador
+      - name: Apagar emulador
         if: always()
-        run: |
-          adb emu kill || true
-          pkill -f emulator || true
+        run: adb emu kill
